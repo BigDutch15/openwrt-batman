@@ -33,3 +33,6 @@ Thumbs.db
 # Shell script specific
 *.sh.orig
 *.sh~
+
+# Environment variables
+.env
