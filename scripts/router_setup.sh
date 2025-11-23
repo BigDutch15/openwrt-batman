@@ -1,7 +1,7 @@
 #!/bin/ash
 
 
-ROUTER_NAME=$ROUTER_NAME || "OpenWrt"
+router_name=${ROUTER_NAME:-"OpenWrt"}
 
 
 # ====================================================================
@@ -53,5 +53,12 @@ fi
 
 
 
-echo "[INFO] Setting system hostname to $ROUTER_NAME..."
+echo "[INFO] Setting system hostname to $router_name..."
+uci set system.@system[0].hostname=${router_name}
+uci commit system
 
+# ====================================================================
+# STEP 8: Apply configuration changes
+# ====================================================================
+echo "[INFO] Reload the system service..."
+/etc/init.d/system reload
