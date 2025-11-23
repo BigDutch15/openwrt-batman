@@ -2,6 +2,8 @@
 
 
 router_name=${ROUTER_NAME:-"OpenWrt"}
+router_timezone=${ROUTER_TIMEZONE:-"CST6CDT,M3.2.0,M11.1.0"}
+router_timezone_name=${ROUTER_TIMEZONE_NAME:-"America/Chicago"}
 
 
 # ====================================================================
@@ -41,6 +43,8 @@ else
     echo "[SUCCESS] wpad-mesh-openssl installed"
 fi
 
+
+
 echo "[INFO] Checking and installing kmod-batman-adv package..."
 if opkg list-installed | grep kmod-batman-adv > /dev/null; then
     echo "[INFO] kmod-batman-adv is already installed"
@@ -52,10 +56,25 @@ else
 fi
 
 
-
+# ====================================================================
+# STEP 3: Set system information
+# ====================================================================
 echo "[INFO] Setting system hostname to $router_name..."
 uci set system.@system[0].hostname=${router_name}
 uci commit system
+
+
+echo "[INFO] Setting system timezone to $ROUTER_TIMEZONE_NAME..."
+uci set system.@system[0].zonename=${ROUTER_TIMEZONE_NAME}
+uci set system.@system[0].timezone=${ROUTER_TIMEZONE}
+uci commit system
+
+
+# ====================================================================
+# STEP 3: Create the guest network interface
+# ====================================================================
+echo "[INFO] Creating guest network interface..."
+
 
 # ====================================================================
 # STEP 8: Apply configuration changes
