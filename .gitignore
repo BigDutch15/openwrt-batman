@@ -1,0 +1,35 @@
+# Compiled files
+*.o
+*.so
+*.a
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Backup files
+*~
+*.bak
+*.swp
+*.swo
+*.swn
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Shell script specific
+*.sh.orig
+*.sh~
