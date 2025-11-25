@@ -27,6 +27,13 @@ echo "[INFO] Guest Password: [REDACTED]"
 echo "[INFO] Guest Channel: $guest_channel"
 echo "[INFO] Guest WiFi Device: $guest_wifi_device"
 
+iot_net_id=${IOT_NET_ID:-"iot"}
+iot_ipaddr=${IOT_IPADDR:-"192.168.4.1"}
+iot_ssid=${IOT_SSID:-"IoT"}
+iot_pwd=${IOT_PWD:-"CHANGE-ME-INSECURE-DEFAULT"}
+iot_channel=${IOT_CHANNEL:-"1"}
+iot_wifi_device=${IOT_WIFI_DEVICE:-"radio1"}
+
 # Function to get machine model from dmesg
 get_machine_model() {
 	local model=""
@@ -180,6 +187,8 @@ set wireless.${guest_net_id}.ocv=0
 set wireless.${guest_net_id}.mobility_domain=${mobility_domain}
 set wireless.${guest_net_id}.ieee80211r=1
 set wireless.${guest_net_id}.ft_over_ds=0
+set wireless.${guest_net_id}.isolate='1'
+set wireless.${guest_net_id}.ft_psk_generate_local='1'
 
 delete wireless.${guest_net_id}.disabled
 
@@ -233,9 +242,99 @@ commit firewall
 
 EOI
 
+# ====================================================================
+# STEP 4: Create the IoT network interface
+# ====================================================================
 
+uci -q batch << EOI
+# Create bridge device for IoT network
+delete network.${iot_net_id}_dev
+set network.${iot_net_id}_dev=device
+set network.${iot_net_id}_dev.type=bridge
+set network.${iot_net_id}_dev.name=br-${iot_net_id}
 
+# Create IoT network interface
+delete network.${iot_net_id}
+set network.${iot_net_id}=interface
+set network.${iot_net_id}.proto=static
+set network.${iot_net_id}.device=br-${iot_net_id}
+set network.${iot_net_id}.ipaddr=${iot_ipaddr}/24
 
+# Commit the changes
+commit network
+
+# Enable the radio device first
+delete wireless.${iot_wifi_device}.disabled
+set wireless.${iot_wifi_device}.channel=${iot_channel}
+set wireless.${iot_wifi_device}.country=US
+set wireless.${iot_wifi_device}.cell_density=0
+
+# Create guest WiFi interface
+delete wireless.${iot_net_id}
+set wireless.${iot_net_id}=wifi-iface
+set wireless.${iot_net_id}.device=${iot_wifi_device}
+set wireless.${iot_net_id}.mode=ap
+set wireless.${iot_net_id}.network=${iot_net_id}
+set wireless.${iot_net_id}.ssid='${iot_ssid}'
+set wireless.${iot_net_id}.encryption=psk2
+set wireless.${iot_net_id}.key=${iot_pwd}
+
+set wireless.${iot_net_id}.ocv=0
+set wireless.${iot_net_id}.mobility_domain=${mobility_domain}
+set wireless.${iot_net_id}.ieee80211r=1
+set wireless.${iot_net_id}.ft_over_ds=0
+
+delete wireless.${iot_net_id}.disabled
+
+commit wireless
+
+delete dhcp.${iot_net_id}
+set dhcp.${iot_net_id}=dhcp
+set dhcp.${iot_net_id}.interface=${iot_net_id}
+set dhcp.${iot_net_id}.start=100  # Start at .100
+set dhcp.${iot_net_id}.limit=150  # 150 addresses available
+set dhcp.${iot_net_id}.leasetime=1h
+
+commit dhcp
+
+# Create IoT network firewall zone (isolated)
+delete firewall.${iot_net_id}
+set firewall.${iot_net_id}=zone
+set firewall.${iot_net_id}.name=${iot_net_id}Zone
+set firewall.${iot_net_id}.network=${iot_net_id}
+set firewall.${iot_net_id}.input=REJECT
+set firewall.${iot_net_id}.output=ACCEPT
+set firewall.${iot_net_id}.forward=REJECT
+
+# Allow DNS queries from IoT network to router
+delete firewall.${iot_net_id}_dns
+set firewall.${iot_net_id}_dns=rule
+set firewall.${iot_net_id}_dns.name=Allow-DNS-${iot_net_id}
+set firewall.${iot_net_id}_dns.src=${iot_net_id}Zone
+set firewall.${iot_net_id}_dns.dest_port=53  # DNS port
+add_list firewall.${iot_net_id}_dns.proto=tcp
+add_list firewall.${iot_net_id}_dns.proto=udp
+set firewall.${iot_net_id}_dns.target=ACCEPT
+
+# Allow DHCP requests from IoT network to router
+delete firewall.${iot_net_id}_dhcp
+set firewall.${iot_net_id}_dhcp=rule
+set firewall.${iot_net_id}_dhcp.name=Allow-DHCP-${iot_net_id}
+set firewall.${iot_net_id}_dhcp.src=${iot_net_id}Zone
+set firewall.${iot_net_id}_dhcp.dest_port=67
+set firewall.${iot_net_id}_dhcp.proto=udp
+set firewall.${iot_net_id}_dhcp.family=ipv4
+set firewall.${iot_net_id}_dhcp.target=ACCEPT
+
+# Allow guest network to access internet via WAN
+delete firewall.${iot_net_id}_wan
+set firewall.${iot_net_id}_wan=forwarding
+set firewall.${iot_net_id}_wan.src=${iot_net_id}Zone
+set firewall.${iot_net_id}_wan.dest=${FW_WAN}
+
+commit firewall
+
+EOI
 
 
 
