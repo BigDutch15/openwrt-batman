@@ -9,8 +9,8 @@ set -e  # Exit on error
 # Load environment variables from .env file if it exists
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/.env"
-LOCAL_SCRIPT="${SCRIPT_DIR}/scripts/router_setup.sh"
-TEMP_SCRIPT="/tmp/router_setup_$(date +%s).sh"
+LOCAL_SCRIPT="${SCRIPT_DIR}/scripts/Linksys_MX4200v1_setup.sh"  
+TEMP_SCRIPT="/tmp/Linksys_MX4200v1_setup_$(date +%s).sh"
 
 # Load default values from .env file if it exists
 if [ -f "$ENV_FILE" ]; then
