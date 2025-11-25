@@ -366,6 +366,27 @@ commit firewall
 EOI
 }
 
+# Create firewall forwarding rule between zones
+# Parameters: src_zone, dest_zone, rule_name
+create_zone_forwarding() {
+	local src_zone="$1"
+	local dest_zone="$2"
+	local rule_name="$3"
+	
+	echo "[INFO] Creating forwarding rule: ${src_zone} -> ${dest_zone}..."
+	
+	uci -q batch << EOI
+# Allow forwarding from ${src_zone} to ${dest_zone}
+delete firewall.${rule_name}
+set firewall.${rule_name}=forwarding
+set firewall.${rule_name}.name=${rule_name}
+set firewall.${rule_name}.src=${src_zone}
+set firewall.${rule_name}.dest=${dest_zone}
+
+commit firewall
+EOI
+}
+
 # ====================================================================
 # Service Management Functions
 # ====================================================================

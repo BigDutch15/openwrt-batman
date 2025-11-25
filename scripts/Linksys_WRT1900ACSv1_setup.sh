@@ -114,12 +114,18 @@ echo "[INFO] Creating Home network..."
 create_network "$home_net_id" "$home_ipaddr" "$home_ssid" "$home_pwd" "$home_channel" "$home_wifi_device" "$mobility_domain" "$FW_WAN" 0 1
 
 # ====================================================================
-# STEP 7: Delete OpenWrt default radios
+# STEP 7: Configure inter-zone forwarding
+# ====================================================================
+echo "[INFO] Configuring network access rules..."
+create_zone_forwarding "homeZone" "iotZone" "home_to_iot"
+
+# ====================================================================
+# STEP 8: Delete OpenWrt default radios
 # ====================================================================
 delete_default_radios radio0 radio1
 
 # ====================================================================
-# STEP 8: Apply configuration changes
+# STEP 9: Apply configuration changes
 # ====================================================================
 if ! restart_services; then
     exit 1
