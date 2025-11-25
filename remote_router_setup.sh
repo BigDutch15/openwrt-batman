@@ -104,8 +104,13 @@ fi
 
 echo "Selected router: $ROUTER_MODEL"
 
-# Create a temporary script with the main script content
-cat "$LOCAL_SCRIPT" > "$TEMP_SCRIPT"
+# Create a temporary script that includes both common functions and main script
+echo "Creating combined script..."
+cat "${SCRIPT_DIR}/scripts/common_functions.sh" > "$TEMP_SCRIPT"
+echo "" >> "$TEMP_SCRIPT"
+echo "# ===== Main Script Starts Here =====" >> "$TEMP_SCRIPT"
+# Skip the sourcing line from the main script since we're embedding the functions
+tail -n +6 "$LOCAL_SCRIPT" >> "$TEMP_SCRIPT"
 
 echo "Executing router setup on $REMOTE_USER@$REMOTE_HOST..."
 
