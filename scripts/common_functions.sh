@@ -164,8 +164,30 @@ detect_wan_interface() {
 	export FW_WAN
 }
 
+# Create VLAN on a bridge interface
+# Parameters: vlan_id, bridge_device, vlan_tag
+create_vlan() {
+	local vlan_id="$1"
+	local bridge_device="$2"
+	local vlan_tag="$3"
+	
+	echo "[INFO] Creating VLAN ${vlan_tag} on ${bridge_device}..."
+	
+	uci -q batch << EOI
+# Create VLAN device
+delete network.${vlan_id}_vlan
+set network.${vlan_id}_vlan=device
+set network.${vlan_id}_vlan.type=8021q
+set network.${vlan_id}_vlan.ifname=${bridge_device}
+set network.${vlan_id}_vlan.vid=${vlan_tag}
+set network.${vlan_id}_vlan.name=${bridge_device}.${vlan_tag}
+
+commit network
+EOI
+}
+
 # Create a network with WiFi interface and firewall rules
-# Parameters: net_id, ipaddr, ssid, pwd, channel, wifi_device, mobility_domain, fw_wan, isolate_clients, allow_router_access
+# Parameters: net_id, ipaddr, ssid, pwd, channel, wifi_device, mobility_domain, fw_wan, isolate_clients, allow_router_access, vlan_tag (optional)
 create_network() {
 	local net_id="$1"
 	local ipaddr="$2"
@@ -177,8 +199,37 @@ create_network() {
 	local fw_wan="$8"
 	local isolate_clients="${9:-0}"  # Default: don't isolate
 	local allow_router_access="${10:-0}"  # Default: no router access
+	local vlan_tag="${11:-}"  # Optional: VLAN tag
 	
-	uci -q batch << EOI
+	# If VLAN tag is specified, configure VLAN-aware bridge
+	if [ -n "$vlan_tag" ]; then
+		echo "[INFO] Configuring VLAN ${vlan_tag} for ${net_id} network..."
+		uci -q batch << EOI
+# Create bridge device for $net_id network with VLAN support
+delete network.${net_id}_dev
+set network.${net_id}_dev=device
+set network.${net_id}_dev.type=bridge
+set network.${net_id}_dev.name=br-${net_id}
+set network.${net_id}_dev.vlan_filtering=1
+
+# Create bridge VLAN entry
+delete network.${net_id}_vlan
+set network.${net_id}_vlan=bridge-vlan
+set network.${net_id}_vlan.device=br-${net_id}
+set network.${net_id}_vlan.vlan=${vlan_tag}
+add_list network.${net_id}_vlan.ports='*:u'
+
+# Create $net_id network interface
+delete network.${net_id}
+set network.${net_id}=interface
+set network.${net_id}.proto=static
+set network.${net_id}.device=br-${net_id}.${vlan_tag}
+set network.${net_id}.ipaddr=${ipaddr}/24
+
+commit network
+EOI
+	else
+		uci -q batch << EOI
 # Create bridge device for $net_id network
 delete network.${net_id}_dev
 set network.${net_id}_dev=device
@@ -193,7 +244,10 @@ set network.${net_id}.device=br-${net_id}
 set network.${net_id}.ipaddr=${ipaddr}/24
 
 commit network
+EOI
+	fi
 
+	uci -q batch << EOI
 # Enable the radio device first
 delete wireless.${wifi_device}.disabled
 set wireless.${wifi_device}.channel=${channel}

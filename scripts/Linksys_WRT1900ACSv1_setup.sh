@@ -4,7 +4,7 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "${SCRIPT_DIR}/common_functions.sh"
 
-REQUIRED_HARDWARE="Linksys WRT1900ACS v1"
+REQUIRED_HARDWARE="Linksys WRT1900ACS"
 
 # Load configuration
 router_name=${ROUTER_NAME:-"Linksys_WRT1900ACSv1"}
@@ -19,6 +19,7 @@ guest_ssid=${GUEST_SSID:-"Guest"}
 guest_pwd=${GUEST_PWD:-"CHANGE-ME-INSECURE-DEFAULT"}
 guest_channel=${GUEST_CHANNEL:-"1"}
 guest_wifi_device=${GUEST_WIFI_DEVICE:-"radio1"}
+guest_vlan=${GUEST_VLAN:-"10"}
 
 echo "[INFO] Router Name: $router_name"
 echo "[INFO] Router Timezone: $router_timezone"
@@ -30,6 +31,7 @@ echo "[INFO] Guest SSID: $guest_ssid"
 echo "[INFO] Guest Password: [REDACTED]"
 echo "[INFO] Guest Channel: $guest_channel"
 echo "[INFO] Guest WiFi Device: $guest_wifi_device"
+echo "[INFO] Guest VLAN: $guest_vlan"
 
 iot_net_id=${IOT_NET_ID:-"iot"}
 iot_ipaddr=${IOT_IPADDR:-"192.168.4.1"}
@@ -92,10 +94,10 @@ if ! set_timezone "$router_timezone_name" "$router_timezone"; then
 fi
 
 # ====================================================================
-# STEP 4: Create the guest network interface
+# STEP 4: Create the guest network interface with VLAN
 # ====================================================================
-echo "[INFO] Creating guest network..."
-create_network "$guest_net_id" "$guest_ipaddr" "$guest_ssid" "$guest_pwd" "$guest_channel" "$guest_wifi_device" "$mobility_domain" "$FW_WAN" 1 0
+echo "[INFO] Creating guest network with VLAN ${guest_vlan}..."
+create_network "$guest_net_id" "$guest_ipaddr" "$guest_ssid" "$guest_pwd" "$guest_channel" "$guest_wifi_device" "$mobility_domain" "$FW_WAN" 1 0 "$guest_vlan"
 
 # ====================================================================
 # STEP 5: Create the IoT network interface
