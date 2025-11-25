@@ -36,4 +36,5 @@ Thumbs.db
 
 # Environment variables
 .env
+.env.4200
 make_mesh_router_mx4200.sh
