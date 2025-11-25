@@ -39,6 +39,7 @@ iot_ssid=${IOT_SSID:-"IoT"}
 iot_pwd=${IOT_PWD:-"CHANGE-ME-INSECURE-DEFAULT"}
 iot_channel=${IOT_CHANNEL:-"1"}
 iot_wifi_device=${IOT_WIFI_DEVICE:-"radio1"}
+iot_vlan=${IOT_VLAN:-"20"}
 
 echo "[INFO] IoT Net ID: $iot_net_id"
 echo "[INFO] IoT IP Address: $iot_ipaddr"
@@ -46,6 +47,7 @@ echo "[INFO] IoT SSID: $iot_ssid"
 echo "[INFO] IoT Password: [REDACTED]"
 echo "[INFO] IoT Channel: $iot_channel"
 echo "[INFO] IoT WiFi Device: $iot_wifi_device"
+echo "[INFO] IoT VLAN: $iot_vlan"
 
 home_net_id=${HOME_NET_ID:-"home"}
 home_ipaddr=${HOME_IPADDR:-"192.168.5.1"}
@@ -100,10 +102,10 @@ echo "[INFO] Creating guest network with VLAN ${guest_vlan}..."
 create_network "$guest_net_id" "$guest_ipaddr" "$guest_ssid" "$guest_pwd" "$guest_channel" "$guest_wifi_device" "$mobility_domain" "$FW_WAN" 1 0 "$guest_vlan"
 
 # ====================================================================
-# STEP 5: Create the IoT network interface
+# STEP 5: Create the IoT network interface with VLAN
 # ====================================================================
-echo "[INFO] Creating IoT network..."
-create_network "$iot_net_id" "$iot_ipaddr" "$iot_ssid" "$iot_pwd" "$iot_channel" "$iot_wifi_device" "$mobility_domain" "$FW_WAN" 1 0
+echo "[INFO] Creating IoT network with VLAN ${iot_vlan}..."
+create_network "$iot_net_id" "$iot_ipaddr" "$iot_ssid" "$iot_pwd" "$iot_channel" "$iot_wifi_device" "$mobility_domain" "$FW_WAN" 1 0 "$iot_vlan"
 
 # ====================================================================
 # STEP 6: Create the Home network interface
