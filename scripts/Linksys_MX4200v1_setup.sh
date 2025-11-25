@@ -34,6 +34,27 @@ iot_pwd=${IOT_PWD:-"CHANGE-ME-INSECURE-DEFAULT"}
 iot_channel=${IOT_CHANNEL:-"1"}
 iot_wifi_device=${IOT_WIFI_DEVICE:-"radio1"}
 
+echo "[INFO] IoT Net ID: $iot_net_id"
+echo "[INFO] IoT IP Address: $iot_ipaddr"
+echo "[INFO] IoT SSID: $iot_ssid"
+echo "[INFO] IoT Password: [REDACTED]"
+echo "[INFO] IoT Channel: $iot_channel"
+echo "[INFO] IoT WiFi Device: $iot_wifi_device"
+
+home_net_id=${HOME_NET_ID:-"home"}
+home_ipaddr=${HOME_IPADDR:-"192.168.5.1"}
+home_ssid=${HOME_SSID:-"Home"}
+home_pwd=${HOME_PWD:-"CHANGE-ME-INSECURE-DEFAULT"}
+home_channel=${HOME_CHANNEL:-"36"}
+home_wifi_device=${HOME_WIFI_DEVICE:-"radio0"}
+
+echo "[INFO] Home Net ID: $home_net_id"
+echo "[INFO] Home IP Address: $home_ipaddr"
+echo "[INFO] Home SSID: $home_ssid"
+echo "[INFO] Home Password: [REDACTED]"
+echo "[INFO] Home Channel: $home_channel"
+echo "[INFO] Home WiFi Device: $home_wifi_device"
+
 # Function to get machine model from dmesg
 get_machine_model() {
 	local model=""
@@ -84,7 +105,10 @@ echo "[INFO] WAN interface detected: $NET_IF (firewall zone: $FW_WAN)"
 echo "[INFO] Checking and removing wpad-basic-mbedtls package..."
 if opkg list-installed | grep wpad-basic-mbedtls > /dev/null; then
     echo "[INFO] Removing wpad-basic-mbedtls (incompatible with mesh)"
-    opkg remove wpad-basic-mbedtls
+    if ! opkg remove wpad-basic-mbedtls; then
+        echo "[ERROR] Failed to remove wpad-basic-mbedtls"
+        exit 1
+    fi
     echo "[SUCCESS] wpad-basic-mbedtls removed"
 else
     echo "[INFO] wpad-basic-mbedtls is not installed"
@@ -93,7 +117,10 @@ fi
 echo "[INFO] Checking and removing wpad-basic-wolfssl package..."
 if opkg list-installed | grep wpad-basic-wolfssl > /dev/null; then
     echo "[INFO] Removing wpad-basic-wolfssl (incompatible with mesh)"
-    opkg remove wpad-basic-wolfssl
+    if ! opkg remove wpad-basic-wolfssl; then
+        echo "[ERROR] Failed to remove wpad-basic-wolfssl"
+        exit 1
+    fi
     echo "[SUCCESS] wpad-basic-wolfssl removed"
 else
     echo "[INFO] wpad-basic-wolfssl is not installed"
@@ -101,14 +128,20 @@ fi
 
 # Update package lists once before installing all packages
 echo "[INFO] Updating package lists..."
-opkg update
+if ! opkg update; then
+    echo "[ERROR] Failed to update package lists"
+    exit 1
+fi
 
 echo "[INFO] Checking and installing wpad-mesh-openssl package..."
 if opkg list-installed | grep wpad-mesh-openssl > /dev/null; then
     echo "[INFO] wpad-mesh-openssl is already installed"
 else
     echo "[INFO] Installing wpad-mesh-openssl..."
-    opkg install wpad-mesh-openssl
+    if ! opkg install wpad-mesh-openssl; then
+        echo "[ERROR] Failed to install wpad-mesh-openssl"
+        exit 1
+    fi
     echo "[SUCCESS] wpad-mesh-openssl installed"
 fi
 
@@ -117,7 +150,10 @@ if opkg list-installed | grep kmod-batman-adv > /dev/null; then
     echo "[INFO] kmod-batman-adv is already installed"
 else
     echo "[INFO] Installing kmod-batman-adv..."
-    opkg install kmod-batman-adv
+    if ! opkg install kmod-batman-adv; then
+        echo "[ERROR] Failed to install kmod-batman-adv"
+        exit 1
+    fi
     echo "[SUCCESS] kmod-batman-adv installed"
 fi
 
@@ -126,7 +162,10 @@ if opkg list-installed | grep batctl-default > /dev/null; then
     echo "[INFO] batctl-default is already installed"
 else
     echo "[INFO] Installing batctl-default..."
-    opkg install batctl-default
+    if ! opkg install batctl-default; then
+        echo "[ERROR] Failed to install batctl-default"
+        exit 1
+    fi
     echo "[SUCCESS] batctl-default installed"
 fi
 
@@ -136,13 +175,18 @@ fi
 # ====================================================================
 echo "[INFO] Setting system hostname to $router_name..."
 uci set system.@system[0].hostname=${router_name}
-uci commit system
-
+if ! uci commit system; then
+    echo "[ERROR] Failed to commit system hostname changes"
+    exit 1
+fi
 
 echo "[INFO] Setting system timezone to $router_timezone_name.."
 uci set system.@system[0].zonename=${router_timezone_name}
 uci set system.@system[0].timezone=${router_timezone}
-uci commit system
+if ! uci commit system; then
+    echo "[ERROR] Failed to commit system timezone changes"
+    exit 1
+fi
 
 # ====================================================================
 # STEP 4: Create the guest network interface
@@ -180,7 +224,7 @@ set wireless.${guest_net_id}.device=${guest_wifi_device}
 set wireless.${guest_net_id}.mode=ap
 set wireless.${guest_net_id}.network=${guest_net_id}
 set wireless.${guest_net_id}.ssid='${guest_ssid}'
-set wireless.${guest_net_id}.encryption=psk2
+set wireless.${guest_net_id}.encryption=psk2+ccmp
 set wireless.${guest_net_id}.key=${guest_pwd}
 
 set wireless.${guest_net_id}.ocv=0
@@ -243,7 +287,7 @@ commit firewall
 EOI
 
 # ====================================================================
-# STEP 4: Create the IoT network interface
+# STEP 5: Create the IoT network interface
 # ====================================================================
 
 uci -q batch << EOI
@@ -269,20 +313,22 @@ set wireless.${iot_wifi_device}.channel=${iot_channel}
 set wireless.${iot_wifi_device}.country=US
 set wireless.${iot_wifi_device}.cell_density=0
 
-# Create guest WiFi interface
+# Create IoT WiFi interface
 delete wireless.${iot_net_id}
 set wireless.${iot_net_id}=wifi-iface
 set wireless.${iot_net_id}.device=${iot_wifi_device}
 set wireless.${iot_net_id}.mode=ap
 set wireless.${iot_net_id}.network=${iot_net_id}
 set wireless.${iot_net_id}.ssid='${iot_ssid}'
-set wireless.${iot_net_id}.encryption=psk2
+set wireless.${iot_net_id}.encryption=psk2+ccmp
 set wireless.${iot_net_id}.key=${iot_pwd}
 
 set wireless.${iot_net_id}.ocv=0
 set wireless.${iot_net_id}.mobility_domain=${mobility_domain}
 set wireless.${iot_net_id}.ieee80211r=1
 set wireless.${iot_net_id}.ft_over_ds=0
+set wireless.${iot_net_id}.isolate='1'
+set wireless.${iot_net_id}.ft_psk_generate_local='1'
 
 delete wireless.${iot_net_id}.disabled
 
@@ -326,7 +372,7 @@ set firewall.${iot_net_id}_dhcp.proto=udp
 set firewall.${iot_net_id}_dhcp.family=ipv4
 set firewall.${iot_net_id}_dhcp.target=ACCEPT
 
-# Allow guest network to access internet via WAN
+# Allow IoT network to access internet via WAN
 delete firewall.${iot_net_id}_wan
 set firewall.${iot_net_id}_wan=forwarding
 set firewall.${iot_net_id}_wan.src=${iot_net_id}Zone
@@ -336,34 +382,157 @@ commit firewall
 
 EOI
 
+# ====================================================================
+# STEP 6: Create the Home network interface
+# ====================================================================
+uci -q batch << EOI
+# Create bridge device for Home network
+delete network.${home_net_id}_dev
+set network.${home_net_id}_dev=device
+set network.${home_net_id}_dev.type=bridge
+set network.${home_net_id}_dev.name=br-${home_net_id}
 
+# Create Home network interface
+delete network.${home_net_id}
+set network.${home_net_id}=interface
+set network.${home_net_id}.proto=static
+set network.${home_net_id}.device=br-${home_net_id}
+set network.${home_net_id}.ipaddr=${home_ipaddr}/24
 
+# Commit the changes
+commit network
 
+# Enable the radio device first
+delete wireless.${home_wifi_device}.disabled
+set wireless.${home_wifi_device}.channel=${home_channel}
+set wireless.${home_wifi_device}.country=US
+set wireless.${home_wifi_device}.cell_density=0
 
+# Create Home WiFi interface
+delete wireless.${home_net_id}
+set wireless.${home_net_id}=wifi-iface
+set wireless.${home_net_id}.device=${home_wifi_device}
+set wireless.${home_net_id}.mode=ap
+set wireless.${home_net_id}.network=${home_net_id}
+set wireless.${home_net_id}.ssid='${home_ssid}'
+set wireless.${home_net_id}.encryption=psk2+ccmp
+set wireless.${home_net_id}.key=${home_pwd}
 
+set wireless.${home_net_id}.ocv=0
+set wireless.${home_net_id}.mobility_domain=${mobility_domain}
+set wireless.${home_net_id}.ieee80211r=1
+set wireless.${home_net_id}.ft_over_ds=0
 
+delete wireless.${home_net_id}.disabled
 
+commit wireless
 
+delete dhcp.${home_net_id}
+set dhcp.${home_net_id}=dhcp
+set dhcp.${home_net_id}.interface=${home_net_id}
+set dhcp.${home_net_id}.start=100  # Start at .100
+set dhcp.${home_net_id}.limit=150  # 150 addresses available
+set dhcp.${home_net_id}.leasetime=1h
 
+commit dhcp
 
+# Create Home network firewall zone (isolated)
+delete firewall.${home_net_id}
+set firewall.${home_net_id}=zone
+set firewall.${home_net_id}.name=${home_net_id}Zone
+set firewall.${home_net_id}.network=${home_net_id}
+set firewall.${home_net_id}.input=REJECT
+set firewall.${home_net_id}.output=ACCEPT
+set firewall.${home_net_id}.forward=ACCEPT
 
+# Allow DNS queries from Home network to router
+delete firewall.${home_net_id}_dns
+set firewall.${home_net_id}_dns=rule
+set firewall.${home_net_id}_dns.name=Allow-DNS-${home_net_id}
+set firewall.${home_net_id}_dns.src=${home_net_id}Zone
+set firewall.${home_net_id}_dns.dest_port=53  # DNS port
+add_list firewall.${home_net_id}_dns.proto=tcp
+add_list firewall.${home_net_id}_dns.proto=udp
+set firewall.${home_net_id}_dns.target=ACCEPT
 
+# Allow DHCP requests from Home network to router
+delete firewall.${home_net_id}_dhcp
+set firewall.${home_net_id}_dhcp=rule
+set firewall.${home_net_id}_dhcp.name=Allow-DHCP-${home_net_id}
+set firewall.${home_net_id}_dhcp.src=${home_net_id}Zone
+set firewall.${home_net_id}_dhcp.dest_port=67
+set firewall.${home_net_id}_dhcp.proto=udp
+set firewall.${home_net_id}_dhcp.family=ipv4
+set firewall.${home_net_id}_dhcp.target=ACCEPT
 
+# Allow SSH access from Home network to router
+delete firewall.${home_net_id}_ssh
+set firewall.${home_net_id}_ssh=rule
+set firewall.${home_net_id}_ssh.name=Allow-SSH-${home_net_id}
+set firewall.${home_net_id}_ssh.src=${home_net_id}Zone
+set firewall.${home_net_id}_ssh.dest_port=22
+set firewall.${home_net_id}_ssh.proto=tcp
+set firewall.${home_net_id}_ssh.target=ACCEPT
 
+# Allow LuCI web interface access from Home network to router
+delete firewall.${home_net_id}_luci
+set firewall.${home_net_id}_luci=rule
+set firewall.${home_net_id}_luci.name=Allow-LuCI-${home_net_id}
+set firewall.${home_net_id}_luci.src=${home_net_id}Zone
+add_list firewall.${home_net_id}_luci.dest_port=80
+add_list firewall.${home_net_id}_luci.dest_port=443
+set firewall.${home_net_id}_luci.proto=tcp
+set firewall.${home_net_id}_luci.target=ACCEPT
+
+# Allow Home network to access internet via WAN
+delete firewall.${home_net_id}_wan
+set firewall.${home_net_id}_wan=forwarding
+set firewall.${home_net_id}_wan.src=${home_net_id}Zone
+set firewall.${home_net_id}_wan.dest=${FW_WAN}
+
+commit firewall
+
+EOI
 
 # ====================================================================
-# STEP 5: Apply configuration changes
+# STEP 7: Delete OpenWrt radios
+# ====================================================================
+echo "[INFO] Deleting OpenWrt radios..."
+uci delete wireless.default_radio0
+# uci delete wireless.default_radio1	
+uci delete wireless.default_radio2
+uci commit wireless
+
+# ====================================================================
+# STEP 8: Apply configuration changes
 # ====================================================================
 echo "[INFO] Reload the system service..."
-/etc/init.d/system reload
+if ! /etc/init.d/system reload; then
+    echo "[WARNING] Failed to reload system service (non-critical)"
+fi
 
 echo "[INFO] Restarting wpad service to apply changes..."
 wifi down
-/etc/init.d/wpad restart
+if ! /etc/init.d/wpad restart; then
+    echo "[ERROR] Failed to restart wpad service"
+    exit 1
+fi
 wifi up
 
 echo "[INFO] Restarting network services to apply changes..."
-service network reload
-service dnsmasq restart
-service firewall restart
+if ! service network reload; then
+    echo "[ERROR] Failed to reload network service"
+    exit 1
+fi
+
+if ! service dnsmasq restart; then
+    echo "[ERROR] Failed to restart dnsmasq service"
+    exit 1
+fi
+
+if ! service firewall restart; then
+    echo "[ERROR] Failed to restart firewall service"
+    exit 1
+fi
+
 echo "[SUCCESS] All services restarted successfully"
